@@ -21,12 +21,10 @@ fn main() {
 
         in vec2 position;
 
-        uniform float t;
+        uniform mat4 matrix;
 
         void main() {
-            vec2 pos = position;
-            pos.x += t;
-            gl_Position = vec4(pos, 0.0, 1.0);
+            gl_Position = matrix * vec4(position, 0.0, 1.0);
         }
     "#;
 
@@ -64,6 +62,15 @@ fn main() {
             t = -0.5;
         }
 
+        let uniforms = glium::uniform! {
+            matrix: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [t, 0.0, 0.0, 1.0f32],
+            ]
+        };
+
         let mut target = display.draw();
         target.clear_color(0.0, 0.0, 1.0, 1.0);
         target
@@ -71,7 +78,7 @@ fn main() {
                 &vertex_buffer,
                 &indices,
                 &program,
-                &glium::uniform! { t: t },
+                &uniforms,
                 &Default::default(),
             )
             .unwrap();
