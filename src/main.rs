@@ -1,18 +1,30 @@
+use glium::glutin;
 use glium::Surface;
+use std::io::Cursor;
 
 fn main() {
-    use glium::glutin;
-
     let mut events_loop = glutin::EventsLoop::new();
     let wb = glutin::WindowBuilder::new();
     let cb = glutin::ContextBuilder::new();
     let display = glium::Display::new(wb, cb, &events_loop).unwrap();
 
+    let image = image::load(
+        Cursor::new(&include_bytes!("../resource/opengl.png")[..]),
+        image::PNG,
+    )
+    .unwrap()
+    .to_rgba();
+    let image_dimensions = image.dimensions();
+    let image =
+        glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
+    let texture = glium::texture::Texture2d::new(&display, image).unwrap();
+
     #[derive(Copy, Clone)]
     struct Vertex {
         position: [f32; 2],
+        tex_coords: [f32; 2],
     }
-    glium::implement_vertex!(Vertex, position);
+    glium::implement_vertex!(Vertex, position, tex_coords);
 
     let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
@@ -20,12 +32,13 @@ fn main() {
         #version 140
 
         in vec2 position;
-        out vec2 my_attr;
+        in vec2 tex_coords;
+        out vec2 v_tex_coords;
 
         uniform mat4 matrix;
 
         void main() {
-            my_attr = position;
+            v_tex_coords = tex_coords;
             gl_Position = matrix * vec4(position, 0.0, 1.0);
         }
     "#;
@@ -33,11 +46,13 @@ fn main() {
     let fragment_shader_src = r#"
         #version 140
 
-        in vec2 my_attr;
+        in vec2 v_tex_coords;
         out vec4 color;
 
+        uniform sampler2D tex;
+
         void main() {
-            color = vec4(my_attr, 0.0, 1.0);
+            color = texture(tex, v_tex_coords);
         }
     "#;
 
@@ -47,12 +62,15 @@ fn main() {
 
     let vertex1 = Vertex {
         position: [-0.5, -0.5],
+        tex_coords: [0.0, 0.0],
     };
     let vertex2 = Vertex {
         position: [0.0, 0.5],
+        tex_coords: [0.0, 1.0],
     };
     let vertex3 = Vertex {
         position: [0.5, -0.25],
+        tex_coords: [1.0, 0.0],
     };
     let shape = vec![vertex1, vertex2, vertex3];
     let vertex_buffer = glium::VertexBuffer::new(&display, &shape).unwrap();
@@ -71,7 +89,8 @@ fn main() {
                 [-t.sin(), t.cos(), 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
                 [t, 0.0, 0.0, 1.0f32],
-            ]
+            ],
+            tex: &texture // , をつけると通らない...
         };
 
         let mut target = display.draw();
